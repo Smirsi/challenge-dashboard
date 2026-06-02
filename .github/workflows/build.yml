@@ -1,0 +1,85 @@
+name: Build & Deploy Dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "config/**"
+      - "scripts/**"
+      - "web/**"
+      - ".github/workflows/**"
+  workflow_dispatch: {}
+  schedule:
+    # taeglich 06:00 UTC: holt den jeweils aktuellsten Chat-Stand aus dem Gist
+    - cron: "0 6 * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Roh-Chat (+ Alias-Mapping) aus privatem Gist holen
+        env:
+          CHAT_URL: ${{ secrets.CHAT_URL }}
+          ALIASES_URL: ${{ secrets.ALIASES_URL }}
+        run: |
+          mkdir -p data config
+          if [ -z "$CHAT_URL" ]; then
+            echo "::error::Secret CHAT_URL fehlt. Siehe README (privater Gist + Secret)."
+            exit 1
+          fi
+          curl -sSL "$CHAT_URL" -o data/_chat.txt
+          echo "Chat geladen: $(wc -l < data/_chat.txt) Zeilen"
+          # Optional: gepflegtes Alias-Mapping (mit PII) aus dem privaten Gist
+          if [ -n "$ALIASES_URL" ]; then
+            curl -sSL "$ALIASES_URL" -o config/aliases.json && echo "aliases.json geladen"
+          fi
+
+      - name: Parse WhatsApp-Export -> data.json
+        run: python scripts/parse.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        run: npm ci
+        working-directory: web
+
+      - name: Build
+        run: npm run build
+        working-directory: web
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

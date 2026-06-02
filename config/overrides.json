@@ -1,0 +1,5 @@
+{
+  "_comment": "Optionale manuelle Korrekturen, falls der Parser einzelne Werte falsch erkennt. Aktuell nicht zwingend genutzt; Platzhalter fuer spaetere Feinkorrekturen.",
+  "drop": [],
+  "set": []
+}

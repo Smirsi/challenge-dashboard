@@ -1,0 +1,17 @@
+# Node
+web/node_modules/
+web/dist/
+
+# NIE oeffentlich committen: Roh-Chat + Alias-Mapping enthalten PII
+# (Telefonnummern). Beides liegt privat im Gist, die CI holt es per Secret.
+_chat.txt
+data/_chat.txt
+config/aliases.json
+
+# generierte Daten (werden in der CI neu erzeugt)
+web/public/data.json
+
+# OS / Editor
+.DS_Store
+*.log
+.vscode/

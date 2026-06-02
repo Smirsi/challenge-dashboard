@@ -1,0 +1,2 @@
+# Der Parser nutzt ausschliesslich die Python-Standardbibliothek.
+# Es sind keine externen Pakete noetig (haelt die CI schnell).
