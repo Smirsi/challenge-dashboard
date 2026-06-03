@@ -19,6 +19,7 @@ export function daysUntil(iso: string | null, from: string): number | null {
 }
 
 export const STATUS_META: Record<Status, { label: string; dot: string; text: string; bg: string }> = {
+  geschafft: { label: "Geschafft 🏆", dot: "#ffd166", text: "#ffe39a", bg: "rgba(255,209,102,0.14)" },
   sicher: { label: "Sicher", dot: "#b6f400", text: "#cde96a", bg: "rgba(182,244,0,0.12)" },
   knapp: { label: "Knapp", dot: "#ffb020", text: "#ffcf72", bg: "rgba(255,176,32,0.12)" },
   gefahr: { label: "Kick-Zone", dot: "#ff5d6c", text: "#ff97a1", bg: "rgba(255,93,108,0.14)" },

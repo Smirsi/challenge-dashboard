@@ -404,10 +404,19 @@ def main():
         # --- Kick-Simulation: sauber Termin fuer Termin, alle 2 Wochen ---
         # An jedem Kick-Sonntag fliegt raus, wer mit seinem DAMALIGEN Stand unter
         # der DAMALIGEN Kickgrenze liegt. Einmal draussen -> bleibt draussen.
+        # Ist die Saison abgeschlossen, kommt ein FINALER Check am Saisonende dazu:
+        # die Grenze ist dort das volle Ziel (Teiler=1) -> wer das Ziel nicht
+        # erreicht hat, gilt als ausgeschieden ("nicht geschafft").
+        season_over = s_as_of >= end
+        sim_dates = list(kdates)
+        if season_over and (not sim_dates or sim_dates[-1] < end):
+            sim_dates.append(end)
         kicked_on = {}  # canonical -> kick-date
-        for kd in kdates:  # chronologisch
-            cutoff = datetime.combine(kd, time(18, 0))  # Kick erfolgt um 18:00
-            limit_kd = kicklimit(goal, start, end, kd, f0, f1)
+        for kd in sim_dates:  # chronologisch
+            is_final = season_over and kd == end
+            # Finaler Check: bis Ende des letzten Tages; sonst Kick um 18:00.
+            cutoff = datetime.combine(kd, time(23, 59, 59) if is_final else time(18, 0))
+            limit_kd = goal if is_final else kicklimit(goal, start, end, kd, f0, f1)
             for can, series in cleaned_by.items():
                 if can in kicked_on:
                     continue
@@ -446,6 +455,8 @@ def main():
 
             if kicked_date is not None:
                 status = "ausgeschieden"  # bei einem Kick-Termin rausgeflogen / ausgetreten
+            elif season_over:
+                status = "geschafft"  # Saison abgeschlossen + Ziel erreicht
             elif last_score < next_limit:
                 status = "gefahr"  # ueberlebt bisher, aber unter naechster Kickgrenze
             elif last_score < current_soll:

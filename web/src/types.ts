@@ -1,4 +1,4 @@
-export type Status = "sicher" | "knapp" | "gefahr" | "ausgeschieden";
+export type Status = "geschafft" | "sicher" | "knapp" | "gefahr" | "ausgeschieden";
 
 export interface SeriesPoint {
   date: string;
