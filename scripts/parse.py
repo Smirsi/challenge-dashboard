@@ -372,11 +372,14 @@ def main():
             left = bool(ev and ev[1] in ("left", "removed") and ev[0] >= first_date)
             inactive = days_inactive > 14  # Regel: kein Eintrag in 14 Tagen = Kick
 
-            kick_bar = next_limit or cur_limit  # die als naechstes zu schlagende Grenze
-            if left or days_inactive > 28:
-                status = "ausgeschieden"  # Gruppe verlassen/entfernt o. lange weg
-            elif last_score < kick_bar:
-                status = "gefahr"  # wuerde beim naechsten Kick rausfliegen
+            # Status haengt am (eingefrorenen) Stand vs. der steigenden Kickgrenze,
+            # NICHT an blosser Inaktivitaet. Wer aufhoert zu posten, bleibt "drin",
+            # solange sein Stand ueber der Grenze liegt (z.B. Fuehrende, die ruhig sind).
+            if left or (last_score < cur_limit and inactive):
+                # Gruppe verlassen ODER von der gestiegenen Kickgrenze ueberholt
+                status = "ausgeschieden"
+            elif last_score < next_limit:
+                status = "gefahr"  # unter der naechsten Kickgrenze -> akut gefaehrdet
             elif last_score < current_soll:
                 status = "knapp"   # ueber Kickgrenze, aber unter dem Soll
             else:
