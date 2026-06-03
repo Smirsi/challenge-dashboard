@@ -394,12 +394,21 @@ def main():
                     continue  # hat bis zu diesem Termin noch nicht teilgenommen
                 if sc < limit_kd:
                     kicked_on[can] = kd
-        # Freiwilliger Austritt / Entfernung als Ausscheide-Ereignis.
+        # Austritt/Entfernung zaehlt NUR, wenn er INNERHALB dieser Saison passiert UND
+        # die Person das Ziel noch nicht erreicht hatte (sonst ist sie Finisher und
+        # ein spaeterer Austritt - z.B. in einer Folgesaison - darf nichts aendern).
         for can, series in cleaned_by.items():
             ev = last_event.get(can)
-            if ev and ev[1] in ("left", "removed") and ev[0] >= series[0][0].date():
-                if can not in kicked_on or ev[0] < kicked_on[can]:
-                    kicked_on[can] = ev[0]
+            if not (ev and ev[1] in ("left", "removed")):
+                continue
+            ev_date = ev[0]
+            if not (start <= ev_date <= end and ev_date >= series[0][0].date()):
+                continue
+            score_then = score_as_of(series, datetime.combine(ev_date, time(23, 59, 59)))
+            if score_then is not None and score_then >= goal:
+                continue  # Ziel bereits erreicht -> Finisher, kein Ausscheiden
+            if can not in kicked_on or ev_date < kicked_on[can]:
+                kicked_on[can] = ev_date
 
         participants = []
         for can, cleaned in cleaned_by.items():
@@ -409,7 +418,7 @@ def main():
 
             days_inactive = (s_as_of - last_date).days
             ev = last_event.get(can)
-            left = bool(ev and ev[1] in ("left", "removed") and ev[0] >= first_date)
+            left = bool(ev and ev[1] in ("left", "removed") and start <= ev[0] <= end)
             inactive = days_inactive > 14
             kicked_date = kicked_on.get(can)
 
