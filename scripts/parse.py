@@ -130,20 +130,27 @@ def extract_score(body: str, goal: int):
     if any(kw in low for kw in ORG_KEYWORDS):
         return None
     m = re.match(r"^\s*(\d{1,3}(?:\.\d{3})+|\d+)", t)
-    if not m:
+    if m:
+        num = int(m.group(1).replace(".", ""))
+        rest = t[m.end():].strip()
+        low_rest = rest.lower()
+        if low_rest.startswith("von"):  # "10.000 von 07.06.23-..." = Ziel-Ansage
+            return None
+        # zu viel Text dahinter => Satz, kein Punktestand
+        words = re.findall(r"[A-Za-zÄÖÜäöüß]+", rest)
+        if len(words) >= 3:
+            return None
+        if 0 <= num <= goal * 2:
+            return num
         return None
-    num = int(m.group(1).replace(".", ""))
-    rest = t[m.end():].strip()
-    low_rest = rest.lower()
-    if low_rest.startswith("von"):  # "10.000 von 07.06.23-..." = Ziel-Ansage
-        return None
-    # zu viel Text dahinter => Satz, kein Punktestand
-    words = re.findall(r"[A-Za-zÄÖÜäöüß]+", rest)
-    if len(words) >= 3:
-        return None
-    if num < 0 or num > goal * 2:
-        return None
-    return num
+    # Fallback: Zahl am Satzende nach einem Doppelpunkt ("... seit gestern: 10020").
+    # Das (?<!\d) schliesst Uhrzeiten wie "18:00" aus (Ziffer vor dem Doppelpunkt).
+    m2 = re.search(r"(?<!\d):\s*(\d{1,3}(?:\.\d{3})+|\d{2,})\s*$", t)
+    if m2:
+        num = int(m2.group(1).replace(".", ""))
+        if 0 <= num <= goal * 2:
+            return num
+    return None
 
 
 def load_json(path: Path, default):
@@ -357,8 +364,23 @@ def main():
             people.setdefault(can, []).append((dt, sc))
             post_times.setdefault(can, []).append(dt)
 
-        # Overrides anwenden (gezieltes Entfernen einzelner Datenpunkte)
-        # Format set: {"season": id, "name": canonical, "date": "YYYY-MM-DD", "score": N}
+        # Manuelle Korrekturen aus config/overrides.json anwenden.
+        #   set:  Punkt hinzufuegen/erzwingen (z.B. vom Parser uebersehener Eintrag)
+        #   drop: einen falsch erkannten Punkt entfernen
+        # Format je Eintrag: {"season": id, "name": canonical, "date": "YYYY-MM-DD", "score": N}
+        for o in overrides.get("set", []):
+            if o.get("season") != s["id"]:
+                continue
+            od = date.fromisoformat(o["date"])
+            if start <= od <= end:
+                people.setdefault(o["name"], []).append(
+                    (datetime.combine(od, time(12, 0)), int(o["score"])))
+        for o in overrides.get("drop", []):
+            if o.get("season") == s["id"] and o["name"] in people:
+                people[o["name"]] = [
+                    (dt, sc) for (dt, sc) in people[o["name"]]
+                    if not (dt.date().isoformat() == o["date"] and sc == int(o["score"]))
+                ]
 
         kdates = kick_dates(start, end, date.fromisoformat(s["kickAnchor"]), s_as_of)
         current_soll = soll(goal, start, end, s_as_of)
