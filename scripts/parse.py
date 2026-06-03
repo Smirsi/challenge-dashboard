@@ -129,9 +129,10 @@ def extract_score(body: str, goal: int):
     low = t.lower()
     if any(kw in low for kw in ORG_KEYWORDS):
         return None
-    m = re.match(r"^\s*(\d{1,3}(?:\.\d{3})+|\d+)", t)
+    # Fuehrende Zahl; Tausender per Punkt ODER Leerzeichen ("23.440", "10 000").
+    m = re.match(r"^\s*(\d{1,3}(?:[.\s]\d{3})+|\d+)", t)
     if m:
-        num = int(m.group(1).replace(".", ""))
+        num = int(re.sub(r"[.\s]", "", m.group(1)))
         rest = t[m.end():].strip()
         low_rest = rest.lower()
         if low_rest.startswith("von"):  # "10.000 von 07.06.23-..." = Ziel-Ansage
@@ -140,15 +141,17 @@ def extract_score(body: str, goal: int):
         words = re.findall(r"[A-Za-zÄÖÜäöüß]+", rest)
         if len(words) >= 3:
             return None
-        if 0 <= num <= goal * 2:
+        # Sehr grosszuegige Obergrenze: nur klare Zehnerpotenz-Tippfehler abfangen;
+        # echte Ueberflieger (z.B. 2-3x Ziel) bleiben drin. Spikes raeumt clean_series.
+        if 0 <= num <= goal * 8:
             return num
         return None
     # Fallback: Zahl am Satzende nach einem Doppelpunkt ("... seit gestern: 10020").
     # Das (?<!\d) schliesst Uhrzeiten wie "18:00" aus (Ziffer vor dem Doppelpunkt).
-    m2 = re.search(r"(?<!\d):\s*(\d{1,3}(?:\.\d{3})+|\d{2,})\s*$", t)
+    m2 = re.search(r"(?<!\d):\s*(\d{1,3}(?:[.\s]\d{3})+|\d{2,})\s*$", t)
     if m2:
-        num = int(m2.group(1).replace(".", ""))
-        if 0 <= num <= goal * 2:
+        num = int(re.sub(r"[.\s]", "", m2.group(1)))
+        if 0 <= num <= goal * 8:
             return num
     return None
 
@@ -353,11 +356,6 @@ def main():
                 continue
             sc = extract_score(body, goal)
             if sc is None:
-                continue
-            # Zeitabhaengige Plausibilitaet: Wert darf nicht voellig ueber dem
-            # liegen, was bis dato ueberhaupt moeglich waere (Tippfehler/Spass).
-            allowed = soll(goal, start, end, d) * 3 + goal * 0.3
-            if sc > allowed:
                 continue
             can = raw_to_can.get(sender, clean_display(sender))
             # Volle Zeit mitfuehren (wichtig fuer den 18:00-Stichzeitpunkt am Kicktag)
