@@ -25,8 +25,10 @@ OUT_FILE = ROOT / "web" / "public" / "data.json"
 
 # Zeile mit Timestamp:  [TT.MM.JJ, HH:MM:SS] Absender: Nachricht
 # (WhatsApp setzt teils ein unsichtbares LRM/U+200E vor die Zeile.)
+# Tolerantes Zeilen-Format. Sekunden optional, Jahr 2- oder 4-stellig.
+# (Whitespace wird vorher normalisiert, daher reicht \s hier.)
 LINE_RE = re.compile(
-    r"^‎?\[(\d{2})\.(\d{2})\.(\d{2}), (\d{2}):(\d{2}):(\d{2})\] (.*?): (.*)$"
+    r"^\[(\d{1,2})\.(\d{1,2})\.(\d{2,4}),\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s+(.*?):\s(.*)$"
 )
 
 # Schlagwoerter, die eine Orga-Ansage (kein Punktestand) markieren.
@@ -93,12 +95,17 @@ def clean_display(raw: str) -> str:
 def parse_messages(text: str):
     """Liefert Liste von (datetime, sender_raw, body) inkl. mehrzeiliger Nachrichten."""
     msgs = []
-    for line in text.splitlines():
+    for raw_line in text.splitlines():
+        # Whitespace normalisieren: schmales/geschuetztes Leerzeichen -> normal,
+        # unsichtbare Bidi-/LRM-Marken am Zeilenanfang entfernen.
+        line = (raw_line.replace(" ", " ").replace(" ", " ")
+                .replace("‎", "").replace("‏", ""))
         m = LINE_RE.match(line)
         if m:
             dd, mm, yy, hh, mi, ss, sender, body = m.groups()
+            year = int(yy) if len(yy) == 4 else 2000 + int(yy)
             try:
-                dt = datetime(2000 + int(yy), int(mm), int(dd), int(hh), int(mi), int(ss))
+                dt = datetime(year, int(mm), int(dd), int(hh), int(mi), int(ss or 0))
             except ValueError:
                 continue
             msgs.append([dt, sender, body])
@@ -256,6 +263,13 @@ def main():
     overrides = load_json(OVERRIDES_FILE, {"drop": [], "set": []})
 
     msgs = parse_messages(text)
+    if not msgs:
+        sys.exit(
+            "FEHLER: Im Chat wurde keine einzige Nachricht erkannt. "
+            f"Quelle hat {len(text)} Zeichen. Vermutlich wurde statt des "
+            "Chat-Inhalts etwas anderes hochgeladen (z.B. nur der Datei-Titel) "
+            "oder das Zeilenformat weicht ab. data.json bleibt unveraendert."
+        )
     raw_names = {sender for _, sender, _ in msgs}
     canonical, raw_to_can = build_alias_map(raw_names, aliases)
 
