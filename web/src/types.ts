@@ -20,6 +20,7 @@ export interface Participant {
   neededPerDay: number;
   reachesGoal: boolean;
   posts: number;
+  kickedDate: string | null;
   rank: number;
   delta: number;
 }

@@ -148,6 +148,9 @@ function Row({
           <Detail label="Nötig/Tag (Ziel)" value={`${p.neededPerDay}`} />
           <Detail label="Erster Post" value={fmtDate(p.firstDate)} />
           <Detail label="Letzter Post" value={fmtDate(p.lastDate)} sub={`${p.daysInactive} T her`} />
+          {p.kickedDate && (
+            <Detail label="Gekickt am" value={fmtDate(p.kickedDate)} color="#ff97a1" />
+          )}
           <Detail label="Posts" value={`${p.posts}`} />
           <Detail label="Kickgrenze jetzt" value={fmt(season.currentKickLimit)} />
         </div>

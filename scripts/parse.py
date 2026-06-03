@@ -258,6 +258,17 @@ def kicklimit(goal, start, end, day, f0, f1) -> float:
     return soll(goal, start, end, day) / divisor
 
 
+def score_as_of(series, day):
+    """Stand (laufendes Max) zum Stichtag: letzter Punkt mit Datum <= day, sonst None."""
+    val = None
+    for d, sc in series:  # series ist chronologisch + monoton steigend
+        if d <= day:
+            val = sc
+        else:
+            break
+    return val
+
+
 def daterange_step(start: date, end: date, step_days: int):
     d = start
     while d <= end:
@@ -355,31 +366,50 @@ def main():
             nk = None
         next_limit = kicklimit(goal, start, end, nk, f0, f1) if nk else cur_limit
 
-        participants = []
+        # Alle Serien einmal bereinigen (monoton steigende Stand-Huellkurve).
+        cleaned_by = {}
         for can, pts in people.items():
-            pts = sorted(pts, key=lambda x: x[0])
-            # Bereinigung: grobe Spikes (Wert faellt danach stark) verwerfen
-            cleaned = clean_series(pts)
-            if not cleaned:
-                continue
+            c = clean_series(sorted(pts, key=lambda x: x[0]))
+            if c:
+                cleaned_by[can] = c
+
+        # --- Kick-Simulation: sauber Termin fuer Termin, alle 2 Wochen ---
+        # An jedem Kick-Sonntag fliegt raus, wer mit seinem DAMALIGEN Stand unter
+        # der DAMALIGEN Kickgrenze liegt. Einmal draussen -> bleibt draussen.
+        kicked_on = {}  # canonical -> kick-date
+        for kd in kdates:  # chronologisch
+            limit_kd = kicklimit(goal, start, end, kd, f0, f1)
+            for can, series in cleaned_by.items():
+                if can in kicked_on:
+                    continue
+                sc = score_as_of(series, kd)
+                if sc is None:
+                    continue  # hat zu diesem Termin noch nicht teilgenommen
+                if sc < limit_kd:
+                    kicked_on[can] = kd
+        # Freiwilliger Austritt / Entfernung als Ausscheide-Ereignis.
+        for can, series in cleaned_by.items():
+            ev = last_event.get(can)
+            if ev and ev[1] in ("left", "removed") and ev[0] >= series[0][0]:
+                if can not in kicked_on or ev[0] < kicked_on[can]:
+                    kicked_on[can] = ev[0]
+
+        participants = []
+        for can, cleaned in cleaned_by.items():
             last_date, last_score = cleaned[-1]
             first_date = cleaned[0][0]
-            # Tagesserie fuer Chart (max-Score bis zu jedem Posting-Tag)
             series = [{"date": d.isoformat(), "score": sc} for d, sc in cleaned]
 
             days_inactive = (s_as_of - last_date).days
             ev = last_event.get(can)
             left = bool(ev and ev[1] in ("left", "removed") and ev[0] >= first_date)
-            inactive = days_inactive > 14  # Regel: kein Eintrag in 14 Tagen = Kick
+            inactive = days_inactive > 14
+            kicked_date = kicked_on.get(can)
 
-            # Status haengt am (eingefrorenen) Stand vs. der steigenden Kickgrenze,
-            # NICHT an blosser Inaktivitaet. Wer aufhoert zu posten, bleibt "drin",
-            # solange sein Stand ueber der Grenze liegt (z.B. Fuehrende, die ruhig sind).
-            if left or (last_score < cur_limit and inactive):
-                # Gruppe verlassen ODER von der gestiegenen Kickgrenze ueberholt
-                status = "ausgeschieden"
+            if kicked_date is not None:
+                status = "ausgeschieden"  # bei einem Kick-Termin rausgeflogen / ausgetreten
             elif last_score < next_limit:
-                status = "gefahr"  # unter der naechsten Kickgrenze -> akut gefaehrdet
+                status = "gefahr"  # ueberlebt bisher, aber unter naechster Kickgrenze
             elif last_score < current_soll:
                 status = "knapp"   # ueber Kickgrenze, aber unter dem Soll
             else:
@@ -406,7 +436,8 @@ def main():
                 "projected": projected,
                 "neededPerDay": round(needed_per_day, 1),
                 "reachesGoal": projected >= goal,
-                "posts": len(pts),
+                "posts": len(people[can]),
+                "kickedDate": kicked_date.isoformat() if kicked_date else None,
             })
 
         participants.sort(key=lambda p: (-p["score"], p["lastDate"]))
