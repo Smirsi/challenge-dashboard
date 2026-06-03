@@ -13,7 +13,7 @@ import json
 import re
 import sys
 import unicodedata
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -258,11 +258,16 @@ def kicklimit(goal, start, end, day, f0, f1) -> float:
     return soll(goal, start, end, day) / divisor
 
 
-def score_as_of(series, day):
-    """Stand (laufendes Max) zum Stichtag: letzter Punkt mit Datum <= day, sonst None."""
+def score_as_of(series, cutoff):
+    """Stand (laufendes Max) zum Stichzeitpunkt: letzter Eintrag mit Zeit <= cutoff.
+
+    series enthaelt (datetime, score), chronologisch + monoton steigend. cutoff ist
+    ein datetime (z.B. Kicktag 18:00), sodass Eintraege nach 18:00 am Kicktag NICHT
+    mehr zaehlen.
+    """
     val = None
-    for d, sc in series:  # series ist chronologisch + monoton steigend
-        if d <= day:
+    for dt, sc in series:
+        if dt <= cutoff:
             val = sc
         else:
             break
@@ -348,7 +353,8 @@ def main():
             if sc > allowed:
                 continue
             can = raw_to_can.get(sender, clean_display(sender))
-            people.setdefault(can, []).append((d, sc))
+            # Volle Zeit mitfuehren (wichtig fuer den 18:00-Stichzeitpunkt am Kicktag)
+            people.setdefault(can, []).append((dt, sc))
             post_times.setdefault(can, []).append(dt)
 
         # Overrides anwenden (gezieltes Entfernen einzelner Datenpunkte)
@@ -378,27 +384,28 @@ def main():
         # der DAMALIGEN Kickgrenze liegt. Einmal draussen -> bleibt draussen.
         kicked_on = {}  # canonical -> kick-date
         for kd in kdates:  # chronologisch
+            cutoff = datetime.combine(kd, time(18, 0))  # Kick erfolgt um 18:00
             limit_kd = kicklimit(goal, start, end, kd, f0, f1)
             for can, series in cleaned_by.items():
                 if can in kicked_on:
                     continue
-                sc = score_as_of(series, kd)
+                sc = score_as_of(series, cutoff)
                 if sc is None:
-                    continue  # hat zu diesem Termin noch nicht teilgenommen
+                    continue  # hat bis zu diesem Termin noch nicht teilgenommen
                 if sc < limit_kd:
                     kicked_on[can] = kd
         # Freiwilliger Austritt / Entfernung als Ausscheide-Ereignis.
         for can, series in cleaned_by.items():
             ev = last_event.get(can)
-            if ev and ev[1] in ("left", "removed") and ev[0] >= series[0][0]:
+            if ev and ev[1] in ("left", "removed") and ev[0] >= series[0][0].date():
                 if can not in kicked_on or ev[0] < kicked_on[can]:
                     kicked_on[can] = ev[0]
 
         participants = []
         for can, cleaned in cleaned_by.items():
-            last_date, last_score = cleaned[-1]
-            first_date = cleaned[0][0]
-            series = [{"date": d.isoformat(), "score": sc} for d, sc in cleaned]
+            last_date, last_score = cleaned[-1][0].date(), cleaned[-1][1]
+            first_date = cleaned[0][0].date()
+            series = [{"date": dt.date().isoformat(), "score": sc} for dt, sc in cleaned]
 
             days_inactive = (s_as_of - last_date).days
             ev = last_event.get(can)
@@ -537,7 +544,7 @@ def build_stats(participants, post_times, people):
         for a, b in zip(pts, pts[1:]):
             jump = b[1] - a[1]
             if jump > biggest_jump["value"]:
-                biggest_jump = {"name": can, "value": jump, "date": b[0].isoformat()}
+                biggest_jump = {"name": can, "value": jump, "date": b[0].date().isoformat()}
     # Nachteule: spaeteste durchschnittliche Posting-Uhrzeit
     night_owl = {"name": None, "hour": -1}
     for can, times in post_times.items():
