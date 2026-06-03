@@ -241,10 +241,21 @@ def soll(goal: int, start: date, end: date, day: date) -> float:
 
 
 def kicklimit(goal, start, end, day, f0, f1) -> float:
+    """Kickgrenze = Soll / Teiler, wobei der Teiler linear von 1/f0 -> 1/f1 laeuft.
+
+    Mit f0=1/3, f1=1 ergibt sich der Teiler 3 -> 1 (linear), also
+    kick(t) = Soll(t) / (3 - 2·t/T) = goal·t / (3T - 2t).
+    Das entspricht exakt dem offiziellen Algorithmus
+    (points_kick = Soll / (1 + 2·remaining/T)).
+    """
     T = (end - start).days
+    if not T:
+        return 0.0
     t = max(0, min((day - start).days, T))
-    frac = f0 + (f1 - f0) * (t / T) if T else f0
-    return soll(goal, start, end, day) * frac
+    d0 = 1.0 / f0   # Start-Teiler (=3)
+    d1 = 1.0 / f1   # End-Teiler   (=1)
+    divisor = d0 + (d1 - d0) * (t / T)
+    return soll(goal, start, end, day) / divisor
 
 
 def daterange_step(start: date, end: date, step_days: int):
@@ -333,14 +344,13 @@ def main():
         # Format set: {"season": id, "name": canonical, "date": "YYYY-MM-DD", "score": N}
 
         kdates = kick_dates(start, end, date.fromisoformat(s["kickAnchor"]), s_as_of)
-        cur_limit = kicklimit(goal, start, end, s_as_of, f0, f1)
-        next_kick = next((kd for kd in
-                          daterange_step(start, end, 14) if kd > s_as_of), None)
-        # genauer: naechster Kick im Anchor-Raster
-        if kdates:
-            nk = kdates[-1] + timedelta(days=14)
-        else:
-            nk = date.fromisoformat(s["kickAnchor"])
+        current_soll = soll(goal, start, end, s_as_of)
+        # Aktuell geltende Kickgrenze = Schwelle des letzten vergangenen Kicks.
+        last_kick = kdates[-1] if kdates else None
+        cur_limit = kicklimit(goal, start, end, last_kick, f0, f1) if last_kick else 0.0
+        # Naechster Kick im 14-Tage-Raster.
+        nk = (last_kick + timedelta(days=14)) if last_kick \
+            else date.fromisoformat(s["kickAnchor"])
         if nk > end:
             nk = None
         next_limit = kicklimit(goal, start, end, nk, f0, f1) if nk else cur_limit
@@ -362,14 +372,15 @@ def main():
             left = bool(ev and ev[1] in ("left", "removed") and ev[0] >= first_date)
             inactive = days_inactive > 14  # Regel: kein Eintrag in 14 Tagen = Kick
 
+            kick_bar = next_limit or cur_limit  # die als naechstes zu schlagende Grenze
             if left or days_inactive > 28:
                 status = "ausgeschieden"  # Gruppe verlassen/entfernt o. lange weg
-            elif last_score < cur_limit:
-                status = "gefahr"  # unter aktueller Kickgrenze
-            elif next_limit and last_score < next_limit:
-                status = "knapp"
+            elif last_score < kick_bar:
+                status = "gefahr"  # wuerde beim naechsten Kick rausfliegen
+            elif last_score < current_soll:
+                status = "knapp"   # ueber Kickgrenze, aber unter dem Soll
             else:
-                status = "sicher"
+                status = "sicher"  # auf/ueber Soll-Kurs
 
             # Pace / Prognose
             elapsed = max(1, (last_date - start).days)

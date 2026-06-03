@@ -68,12 +68,16 @@ Manuelle Änderungen bleiben bei jedem Lauf erhalten.
 Pro Saison in `config/seasons.json`:
 
 - `Soll(t) = goal · t/T` (linear über die Saison)
-- `frac(t) = kickStartFraction + (kickEndFraction − kickStartFraction) · t/T`
-- `Kickgrenze(t) = Soll(t) · frac(t)`
+- `Teiler(t) = (1/kickStartFraction) + ((1/kickEndFraction) − (1/kickStartFraction)) · t/T`
+- `Kickgrenze(t) = Soll(t) / Teiler(t)`
 
-Standard: `kickStartFraction = 1/3`, `kickEndFraction = 1` (Kickgrenze startet bei
-einem Drittel des Solls und steigt linear auf das volle Soll). In der Praxis hat der
-Orga die Grenze früher etwas weicher gesetzt — bei Bedarf einfach die Faktoren anpassen.
+Standard: `kickStartFraction = 1/3`, `kickEndFraction = 1` → der **Teiler läuft linear
+von 3 auf 1**. Damit ist die Kickgrenze am Anfang 1/3 des Solls und am Ende das volle
+Soll, dazwischen aber milder als eine reine Gerade (z. B. zur Saisonmitte 1/2 statt 2/3
+des Solls). Äquivalent: `Kickgrenze(t) = goal · t / (3T − 2t)`.
+
+Das entspricht exakt dem offiziellen Algorithmus
+`points_kick = Soll / (1 + 2 · verbleibendeTage / T)`.
 
 ## Deployment einrichten (einmalig)
 
