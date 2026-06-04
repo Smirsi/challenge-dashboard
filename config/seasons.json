@@ -1,5 +1,5 @@
 {
-  "_comment": "Saison-Definitionen. Datum-Format: YYYY-MM-DD. goal = Jahresziel (Punkte). kickStartFraction/kickEndFraction = Anteil des Solls, der als Kickgrenze gilt (linear interpoliert ueber die Saison). kickAnchor = ein bekannter Kick-Sonntag 18:00; alle Kicks finden im 14-Tage-Raster dazu statt.",
+  "_comment": "Saison-Definitionen. Datum-Format: YYYY-MM-DD. goal = Jahresziel (Punkte). kickStartFraction/kickEndFraction = Anteil des Solls, der als Kickgrenze gilt (linear interpoliert ueber die Saison). kickAnchor = ein bekannter Kick-Sonntag 18:00; alle Kicks finden im 14-Tage-Raster dazu statt. rules = optionale Liste von Punkte-Regeln (wird oben angezeigt). motivation = optionaler Motivationssatz.",
   "seasons": [
     {
       "id": "s1",
@@ -39,6 +39,26 @@
       "kickStartFraction": 0.3333,
       "kickEndFraction": 1.0,
       "kickAnchor": "2025-07-06"
+    },
+    {
+      "id": "s4",
+      "name": "Navy Seals Challenge",
+      "shortName": "Navy Seals",
+      "unit": "Punkte",
+      "emoji": "🪖",
+      "start": "2026-06-25",
+      "end": "2027-06-24",
+      "goal": 7500,
+      "kickStartFraction": 0.3333,
+      "kickEndFraction": 1.0,
+      "kickAnchor": "2026-07-05",
+      "rules": [
+        "1 km laufen = 5 Punkte",
+        "1 km Radfahren = 2 Punkte",
+        "1 Navy Seals Burpee = 1 Punkt",
+        "Für Frauen: 1 Burpee = 2 Punkte"
+      ],
+      "motivation": "Wie lange schaffst du es, dabeizubleiben?"
     }
   ]
 }

@@ -59,6 +59,8 @@ export interface Season {
   curve: CurvePoint[];
   stats: Stats;
   champion: string | null;
+  rules?: string[];
+  motivation?: string;
 }
 
 export interface Data {

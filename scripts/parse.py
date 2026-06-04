@@ -523,6 +523,8 @@ def main():
             "stats": stats,
             "champion": next((p["name"] for p in participants
                               if p["status"] != "ausgeschieden"), None),
+            "rules": s.get("rules", []),
+            "motivation": s.get("motivation", ""),
         })
 
     out = {

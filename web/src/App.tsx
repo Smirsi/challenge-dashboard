@@ -62,6 +62,33 @@ export default function App() {
             onSelect={setSeasonId}
           />
         </div>
+
+        {(season.motivation || (season.rules && season.rules.length > 0)) && (
+          <div className="card p-4 mt-4">
+            {season.motivation && (
+              <p className="text-lg font-bold text-slate-100">
+                💪 {season.motivation}
+              </p>
+            )}
+            {season.rules && season.rules.length > 0 && (
+              <div className="mt-2">
+                <div className="text-mut text-xs uppercase tracking-wide mb-1.5">
+                  Punkte-Regeln
+                </div>
+                <ul className="flex flex-wrap gap-2">
+                  {season.rules.map((r, i) => (
+                    <li
+                      key={i}
+                      className="text-sm font-semibold text-slate-200 bg-white/5 rounded-full px-3 py-1"
+                    >
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       {/* Stat-Karten */}
