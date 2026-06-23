@@ -381,7 +381,10 @@ def main():
                 ]
 
         kdates = kick_dates(start, end, date.fromisoformat(s["kickAnchor"]), s_as_of)
-        current_soll = soll(goal, start, end, s_as_of)
+        # Soll am ENDE des aktuellen Tages: der Stichtag zaehlt als voll
+        # abgelaufener Tag, damit am ersten Tag nicht 0 angezeigt wird.
+        soll_eod = min(s_as_of + timedelta(days=1), end)
+        current_soll = soll(goal, start, end, soll_eod)
         # Aktuell geltende Kickgrenze = Schwelle des letzten vergangenen Kicks.
         last_kick = kdates[-1] if kdates else None
         cur_limit = kicklimit(goal, start, end, last_kick, f0, f1) if last_kick else 0.0
@@ -490,7 +493,7 @@ def main():
         participants.sort(key=lambda p: (-p["score"], p["lastDate"]))
         for i, p in enumerate(participants):
             p["rank"] = i + 1
-            p["delta"] = round(p["score"] - soll(goal, start, end, s_as_of))
+            p["delta"] = round(p["score"] - current_soll)
 
         # Soll-/Kickgrenze-Kurve (woechentlich) fuer den Chart
         curve = []
@@ -513,7 +516,7 @@ def main():
             "end": s["end"],
             "goal": goal,
             "asOf": s_as_of.isoformat(),
-            "currentSoll": round(soll(goal, start, end, s_as_of)),
+            "currentSoll": round(current_soll),
             "currentKickLimit": round(cur_limit),
             "nextKickDate": nk.isoformat() if nk else None,
             "nextKickLimit": round(next_limit) if nk else None,

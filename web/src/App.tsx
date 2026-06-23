@@ -94,15 +94,15 @@ export default function App() {
       {/* Stat-Karten */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat label={`Ziel (${season.unit})`} value={fmt(season.goal)} accent="cyan" />
-        <Stat label="Soll aktuell" value={fmt(season.currentSoll)} accent="lime" />
+        <Stat label="Soll heute" value={fmt(season.currentSoll)} accent="lime" />
         <Stat
-          label="Kickgrenze aktuell"
-          value={fmt(season.currentKickLimit)}
+          label="Kickgrenze nächste"
+          value={fmt(season.nextKickLimit ?? season.currentKickLimit)}
           accent="rose"
           sub={
-            season.nextKickLimit
-              ? `nächste: ${fmt(season.nextKickLimit)}`
-              : undefined
+            season.currentKickLimit > 0
+              ? `aktiv: ${fmt(season.currentKickLimit)}`
+              : "noch kein Kick aktiv"
           }
         />
         <Stat

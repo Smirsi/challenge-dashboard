@@ -152,7 +152,10 @@ function Row({
             <Detail label="Gekickt am" value={fmtDate(p.kickedDate)} color="#ff97a1" />
           )}
           <Detail label="Posts" value={`${p.posts}`} />
-          <Detail label="Kickgrenze jetzt" value={fmt(season.currentKickLimit)} />
+          <Detail
+            label="Kickgrenze nächste"
+            value={fmt(season.nextKickLimit ?? season.currentKickLimit)}
+          />
         </div>
       )}
     </div>
