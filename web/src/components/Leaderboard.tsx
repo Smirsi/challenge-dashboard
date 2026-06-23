@@ -153,7 +153,7 @@ function Row({
           )}
           <Detail label="Posts" value={`${p.posts}`} />
           <Detail
-            label="Kickgrenze nächste"
+            label="Kickgrenze"
             value={fmt(season.nextKickLimit ?? season.currentKickLimit)}
           />
         </div>

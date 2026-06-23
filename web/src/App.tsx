@@ -96,13 +96,13 @@ export default function App() {
         <Stat label={`Ziel (${season.unit})`} value={fmt(season.goal)} accent="cyan" />
         <Stat label="Soll heute" value={fmt(season.currentSoll)} accent="lime" />
         <Stat
-          label="Kickgrenze nächste"
+          label="Kickgrenze"
           value={fmt(season.nextKickLimit ?? season.currentKickLimit)}
           accent="rose"
           sub={
             season.currentKickLimit > 0
-              ? `aktiv: ${fmt(season.currentKickLimit)}`
-              : "noch kein Kick aktiv"
+              ? `letzte Kickgrenze: ${fmt(season.currentKickLimit)}`
+              : "letzte Kickgrenze: —"
           }
         />
         <Stat
