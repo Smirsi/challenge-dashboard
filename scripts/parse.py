@@ -495,9 +495,9 @@ def main():
             p["rank"] = i + 1
             p["delta"] = round(p["score"] - current_soll)
 
-        # Soll-/Kickgrenze-Kurve (woechentlich) fuer den Chart
+        # Soll-/Kickgrenze-Kurve (taeglich) fuer einen glatten Chart-Verlauf
         curve = []
-        for d in daterange_step(start, min(end, max(s_as_of, start)), 7):
+        for d in daterange_step(start, min(end, max(s_as_of, start)), 1):
             curve.append({
                 "date": d.isoformat(),
                 "soll": round(soll(goal, start, end, d)),
