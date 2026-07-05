@@ -17,8 +17,12 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-# Kicks sind an die lokale Uhrzeit gebunden (Kick-Sonntag 18:00 Ortszeit).
+# Kicks sind an die lokale Uhrzeit gebunden (Kick-Sonntag, Ortszeit).
 KICK_TZ = ZoneInfo("Europe/Berlin")
+# Offizieller Kick ist um 18:00, es gibt aber eine Toleranzzeit: wer bis 22:00 des
+# Kicktages die korrekten Punkte nachtraegt, gilt noch als bestanden. Deshalb ist der
+# massgebliche Stichzeitpunkt fuer die Kick-Auswertung 22:00 des Kicktages.
+KICK_DEADLINE = time(22, 0)
 
 ROOT = Path(__file__).resolve().parent.parent
 CHAT_FILE = ROOT / "data" / "_chat.txt"
@@ -235,12 +239,12 @@ def canonical_for(raw, canonical):
 
 
 def kick_dates(start: date, end: date, anchor: date, now_local: datetime):
-    """Alle 14-Tage-Kick-Sonntage, deren 18:00-Frist real bereits verstrichen ist.
+    """Alle 14-Tage-Kick-Sonntage, deren Toleranzfrist (22:00) real verstrichen ist.
 
-    Ein Kick loest erst um 18:00 (Ortszeit) des jeweiligen Sonntags aus. Ein noch
-    laufender Kicktag (Frist in der Zukunft) zaehlt daher noch NICHT - sonst wuerden
-    Teilnehmer schon vormittags als ausgeschieden angezeigt, obwohl sie bis 18:00
-    noch punkten koennen.
+    Der Kick loest offiziell um 18:00 (Ortszeit) aus, aber wer bis 22:00 des Kicktages
+    die korrekten Punkte nachtraegt, bleibt drin. Ein Kick wird daher erst nach 22:00
+    endgueltig gewertet - vorher koennte noch jemand nachreichen und wuerde sonst
+    faelschlich als ausgeschieden angezeigt.
     """
     # zurueck zum ersten Kick >= start
     d = anchor
@@ -248,7 +252,7 @@ def kick_dates(start: date, end: date, anchor: date, now_local: datetime):
         d -= timedelta(days=14)
     out = []
     while d <= end:
-        if d >= start and datetime.combine(d, time(18, 0)) <= now_local:
+        if d >= start and datetime.combine(d, KICK_DEADLINE) <= now_local:
             out.append(d)
         d += timedelta(days=14)
     return out
@@ -310,7 +314,7 @@ def main():
     overrides = load_json(OVERRIDES_FILE, {"drop": [], "set": []})
 
     # Realer Jetzt-Zeitpunkt (Ortszeit, naiv) - entscheidet, ob ein Kick-Sonntag
-    # seine 18:00-Frist schon ueberschritten hat.
+    # seine Toleranzfrist (22:00) schon ueberschritten hat.
     now_local = datetime.now(KICK_TZ).replace(tzinfo=None)
 
     msgs = parse_messages(text)
@@ -409,8 +413,8 @@ def main():
             nk = None
         next_limit = kicklimit(goal, start, end, nk, f0, f1) if nk else cur_limit
 
-        # Hinweis: Kicks werden erst ab 18:00 (Ortszeit) des Kick-Sonntags gewertet,
-        # siehe kick_dates(). Ein laufender Kicktag zaehlt noch nicht.
+        # Hinweis: Kicks werden erst nach der Toleranzfrist 22:00 (Ortszeit) des
+        # Kick-Sonntags endgueltig gewertet, siehe kick_dates()/KICK_DEADLINE.
         # Alle Serien einmal bereinigen (monoton steigende Stand-Huellkurve).
         cleaned_by = {}
         for can, pts in people.items():
@@ -431,8 +435,8 @@ def main():
         kicked_on = {}  # canonical -> kick-date
         for kd in sim_dates:  # chronologisch
             is_final = season_over and kd == end
-            # Finaler Check: bis Ende des letzten Tages; sonst Kick um 18:00.
-            cutoff = datetime.combine(kd, time(23, 59, 59) if is_final else time(18, 0))
+            # Finaler Check: bis Ende des letzten Tages; sonst Kick mit Toleranz bis 22:00.
+            cutoff = datetime.combine(kd, time(23, 59, 59) if is_final else KICK_DEADLINE)
             limit_kd = goal if is_final else kicklimit(goal, start, end, kd, f0, f1)
             for can, series in cleaned_by.items():
                 if can in kicked_on:
