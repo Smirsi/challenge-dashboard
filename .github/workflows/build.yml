@@ -10,8 +10,11 @@ on:
       - ".github/workflows/**"
   workflow_dispatch: {}
   schedule:
-    # taeglich 06:00 UTC: holt den jeweils aktuellsten Chat-Stand aus dem Gist
-    - cron: "0 6 * * *"
+    # stuendlich (Minute 17, um die :00-Ueberlast bei GitHub zu vermeiden):
+    # holt den jeweils aktuellsten Chat-Stand aus dem Gist und deployt zuverlaessig.
+    # Hintergrund: workflow_dispatch-Deploys (Kurzbefehl) werden von GitHub Pages
+    # hier nicht live promotet, push/schedule dagegen schon.
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
