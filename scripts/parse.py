@@ -15,6 +15,10 @@ import sys
 import unicodedata
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+# Kicks sind an die lokale Uhrzeit gebunden (Kick-Sonntag 18:00 Ortszeit).
+KICK_TZ = ZoneInfo("Europe/Berlin")
 
 ROOT = Path(__file__).resolve().parent.parent
 CHAT_FILE = ROOT / "data" / "_chat.txt"
@@ -230,15 +234,21 @@ def canonical_for(raw, canonical):
     return clean_display(raw)
 
 
-def kick_dates(start: date, end: date, anchor: date, as_of: date):
-    """Alle 14-Tage-Kick-Sonntage im Saisonzeitraum bis as_of."""
+def kick_dates(start: date, end: date, anchor: date, now_local: datetime):
+    """Alle 14-Tage-Kick-Sonntage, deren 18:00-Frist real bereits verstrichen ist.
+
+    Ein Kick loest erst um 18:00 (Ortszeit) des jeweiligen Sonntags aus. Ein noch
+    laufender Kicktag (Frist in der Zukunft) zaehlt daher noch NICHT - sonst wuerden
+    Teilnehmer schon vormittags als ausgeschieden angezeigt, obwohl sie bis 18:00
+    noch punkten koennen.
+    """
     # zurueck zum ersten Kick >= start
     d = anchor
     while d - timedelta(days=14) >= start:
         d -= timedelta(days=14)
     out = []
-    while d <= min(end, as_of):
-        if d >= start:
+    while d <= end:
+        if d >= start and datetime.combine(d, time(18, 0)) <= now_local:
             out.append(d)
         d += timedelta(days=14)
     return out
@@ -298,6 +308,10 @@ def main():
     seasons_cfg = load_json(SEASONS_FILE, {"seasons": []})["seasons"]
     aliases = load_json(ALIASES_FILE, {})
     overrides = load_json(OVERRIDES_FILE, {"drop": [], "set": []})
+
+    # Realer Jetzt-Zeitpunkt (Ortszeit, naiv) - entscheidet, ob ein Kick-Sonntag
+    # seine 18:00-Frist schon ueberschritten hat.
+    now_local = datetime.now(KICK_TZ).replace(tzinfo=None)
 
     msgs = parse_messages(text)
     if not msgs:
@@ -380,7 +394,7 @@ def main():
                     if not (dt.date().isoformat() == o["date"] and sc == int(o["score"]))
                 ]
 
-        kdates = kick_dates(start, end, date.fromisoformat(s["kickAnchor"]), s_as_of)
+        kdates = kick_dates(start, end, date.fromisoformat(s["kickAnchor"]), now_local)
         # Soll am ENDE des aktuellen Tages: der Stichtag zaehlt als voll
         # abgelaufener Tag, damit am ersten Tag nicht 0 angezeigt wird.
         soll_eod = min(s_as_of + timedelta(days=1), end)
