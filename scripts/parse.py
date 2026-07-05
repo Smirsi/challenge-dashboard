@@ -409,6 +409,8 @@ def main():
             nk = None
         next_limit = kicklimit(goal, start, end, nk, f0, f1) if nk else cur_limit
 
+        # Hinweis: Kicks werden erst ab 18:00 (Ortszeit) des Kick-Sonntags gewertet,
+        # siehe kick_dates(). Ein laufender Kicktag zaehlt noch nicht.
         # Alle Serien einmal bereinigen (monoton steigende Stand-Huellkurve).
         cleaned_by = {}
         for can, pts in people.items():
