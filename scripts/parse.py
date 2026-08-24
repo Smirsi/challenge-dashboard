@@ -438,7 +438,10 @@ def main():
             is_final = season_over and kd == end
             # Finaler Check: bis Ende des letzten Tages; sonst Kick mit Toleranz bis 22:00.
             cutoff = datetime.combine(kd, time(23, 59, 59) if is_final else KICK_DEADLINE)
-            limit_kd = goal if is_final else kicklimit(goal, start, end, kd, f0, f1)
+            # WICHTIG: gegen die GERUNDETE Grenze pruefen - exakt die Zahl, die im
+            # Dashboard steht. Sonst wuerde jemand mit genau 210 gekickt, obwohl die
+            # angezeigte Grenze (round(210,3)=210) erreicht ist. Was man sieht, gilt.
+            limit_kd = goal if is_final else round(kicklimit(goal, start, end, kd, f0, f1))
             for can, series in cleaned_by.items():
                 if can in kicked_on:
                     continue
@@ -496,9 +499,9 @@ def main():
                 status = "ausgeschieden"  # bei einem Kick-Termin rausgeflogen / ausgetreten
             elif season_over:
                 status = "geschafft"  # Saison abgeschlossen + Ziel erreicht
-            elif last_score < next_limit:
+            elif last_score < round(next_limit):
                 status = "gefahr"  # ueberlebt bisher, aber unter naechster Kickgrenze
-            elif last_score < current_soll:
+            elif last_score < round(current_soll):
                 status = "knapp"   # ueber Kickgrenze, aber unter dem Soll
             else:
                 status = "sicher"  # auf/ueber Soll-Kurs
