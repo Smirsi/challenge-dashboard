@@ -432,7 +432,8 @@ def main():
         sim_dates = list(kdates)
         if season_over and (not sim_dates or sim_dates[-1] < end):
             sim_dates.append(end)
-        kicked_on = {}  # canonical -> kick-date
+        kicked_on = {}      # canonical -> kick-date
+        kick_cutoff = {}    # canonical -> Stichzeitpunkt (datetime), ab dem eingefroren wird
         for kd in sim_dates:  # chronologisch
             is_final = season_over and kd == end
             # Finaler Check: bis Ende des letzten Tages; sonst Kick mit Toleranz bis 22:00.
@@ -446,6 +447,7 @@ def main():
                     continue  # hat bis zu diesem Termin noch nicht teilgenommen
                 if sc < limit_kd:
                     kicked_on[can] = kd
+                    kick_cutoff[can] = cutoff
         # Austritt/Entfernung zaehlt NUR, wenn er INNERHALB dieser Saison passiert UND
         # die Person das Ziel noch nicht erreicht hatte (sonst ist sie Finisher und
         # ein spaeterer Austritt - z.B. in einer Folgesaison - darf nichts aendern).
@@ -461,9 +463,25 @@ def main():
                 continue  # Ziel bereits erreicht -> Finisher, kein Ausscheiden
             if can not in kicked_on or ev_date < kicked_on[can]:
                 kicked_on[can] = ev_date
+                kick_cutoff[can] = datetime.combine(ev_date, time(23, 59, 59))
+
+        # Gekickte Personen einfrieren: Punkte, die NACH dem Kick-Stichzeitpunkt
+        # nachgetragen werden, zaehlen nicht mehr fuer Stand, Rang, Serie und Stats.
+        # (Wer am Kick-Sonntag rausfliegt, bleibt mit seinem damaligen Stand stehen.)
+        frozen_by = {}
+        frozen_posts = {}
+        for can, cleaned in cleaned_by.items():
+            cut = kick_cutoff.get(can)
+            if cut is not None:
+                fc = [(dt, sc) for (dt, sc) in cleaned if dt <= cut]
+                if fc:  # mind. der Eintrag, der zum Kick fuehrte, bleibt erhalten
+                    cleaned = fc
+            frozen_by[can] = cleaned
+            frozen_posts[can] = [t for t in post_times.get(can, [])
+                                 if cut is None or t <= cut]
 
         participants = []
-        for can, cleaned in cleaned_by.items():
+        for can, cleaned in frozen_by.items():
             last_date, last_score = cleaned[-1][0].date(), cleaned[-1][1]
             first_date = cleaned[0][0].date()
             series = [{"date": dt.date().isoformat(), "score": sc} for dt, sc in cleaned]
@@ -506,7 +524,7 @@ def main():
                 "projected": projected,
                 "neededPerDay": round(needed_per_day, 1),
                 "reachesGoal": projected >= goal,
-                "posts": len(people[can]),
+                "posts": len(frozen_posts.get(can, [])),
                 "kickedDate": kicked_date.isoformat() if kicked_date else None,
             })
 
@@ -524,7 +542,7 @@ def main():
                 "kick": round(kicklimit(goal, start, end, d, f0, f1)),
             })
 
-        stats = build_stats(participants, post_times, people)
+        stats = build_stats(participants, frozen_posts, frozen_by)
 
         seasons_out.append({
             "id": s["id"],
